@@ -2,130 +2,98 @@ import streamlit as st
 import pandas as pd
 import sqlite3
 import joblib
+from pathlib import Path
 
 
 # ============================================================
-# PAGE CONFIGURATION
+# PAGE CONFIG
 # ============================================================
 
 st.set_page_config(
     page_title="ShopSphere Analytics",
     page_icon="🛍️",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
 
 # ============================================================
-# PROFESSIONAL CUSTOM CSS
+# PATHS - LOCAL + STREAMLIT CLOUD
+# ============================================================
+
+BASE_DIR = Path(__file__).resolve().parent
+
+CHURN_MODEL_PATH = BASE_DIR / "churn_model.pkl"
+SENTIMENT_MODEL_PATH = BASE_DIR / "sentiment_model.pkl"
+DATABASE_PATH = BASE_DIR / "ecommerce_hackathon.db"
+
+
+# ============================================================
+# CSS
 # ============================================================
 
 st.markdown("""
 <style>
 
-/* Main background */
 .stApp {
-    background: linear-gradient(
-        135deg,
-        #faf7ff 0%,
-        #fff9fc 50%,
-        #f7f9ff 100%
-    );
+    background-color: #faf8ff;
 }
 
-/* Main headings */
 h1, h2, h3 {
-    color: #32146b !important;
+    color: #4c1d95 !important;
 }
 
-/* Normal text */
-p {
-    color: #334155;
-}
-
-/* Sidebar */
 [data-testid="stSidebar"] {
-    background: linear-gradient(
-        180deg,
-        #24104f 0%,
-        #3b176f 100%
-    );
+    background: linear-gradient(180deg, #2e1065, #581c87);
 }
 
 [data-testid="stSidebar"] * {
     color: white !important;
 }
 
-/* KPI metric cards */
 [data-testid="stMetric"] {
-    background: #ffffff;
-    border: 1px solid #e9ddff;
+    background-color: white;
+    border: 1px solid #e9d5ff;
     border-top: 5px solid #7c3aed;
-    padding: 20px;
-    border-radius: 16px;
-    box-shadow: 0px 6px 18px rgba(40, 20, 80, 0.08);
+    padding: 18px;
+    border-radius: 15px;
 }
 
 [data-testid="stMetricLabel"] {
-    color: #64748b !important;
+    color: #475569 !important;
     font-weight: 600;
 }
 
 [data-testid="stMetricValue"] {
-    color: #32146b !important;
+    color: #4c1d95 !important;
     font-weight: 800;
 }
 
-/* Buttons */
 .stButton > button {
-    background: linear-gradient(
-        90deg,
-        #7c3aed,
-        #a855f7,
-        #db2777
-    );
-
+    background-color: #7c3aed;
     color: white !important;
     border: none;
-    border-radius: 12px;
-    padding: 10px 24px;
-    font-weight: 700;
+    border-radius: 10px;
+    padding: 10px 25px;
+    font-weight: bold;
 }
 
 .stButton > button:hover {
+    background-color: #6d28d9;
     color: white !important;
-    border: none;
-    box-shadow: 0px 6px 18px rgba(124, 58, 237, 0.25);
 }
 
-/* Inputs */
-input,
-textarea {
-    background-color: white !important;
-    color: #111827 !important;
-}
-
-/* Select box */
-[data-baseweb="select"] > div {
-    background-color: white !important;
-    color: #111827 !important;
-}
-
-/* Information boxes */
-[data-testid="stAlert"] {
-    border-radius: 14px;
-}
-
-/* Fix success text */
-div[data-testid="stAlert"][data-baseweb="notification"] {
+[data-testid="stAlert"] p {
     color: #1f2937 !important;
+    font-weight: 500;
 }
 
-/* Footer */
+input, textarea {
+    color: #111827 !important;
+}
+
 .footer {
     text-align: center;
     color: #64748b;
-    font-size: 14px;
     padding: 10px;
 }
 
@@ -134,18 +102,18 @@ div[data-testid="stAlert"][data-baseweb="notification"] {
 
 
 # ============================================================
-# LOAD SAVED MODELS
+# LOAD MODELS
 # ============================================================
 
 @st.cache_resource
 def load_models():
 
     churn_model = joblib.load(
-        "churn_model.pkl"
+        CHURN_MODEL_PATH
     )
 
     sentiment_model = joblib.load(
-        "sentiment_model.pkl"
+        SENTIMENT_MODEL_PATH
     )
 
     return churn_model, sentiment_model
@@ -158,24 +126,21 @@ try:
 except Exception as e:
 
     st.error(
-        "Models could not be loaded. "
-        "Make sure churn_model.pkl and "
-        "sentiment_model.pkl are in the same folder as app.py."
+        f"Model loading error: {e}"
     )
 
-    st.exception(e)
     st.stop()
 
 
 # ============================================================
-# DATABASE CONNECTION
+# DATABASE
 # ============================================================
 
 @st.cache_resource
 def connect_database():
 
     return sqlite3.connect(
-        "ecommerce_hackathon.db",
+        DATABASE_PATH,
         check_same_thread=False
     )
 
@@ -187,30 +152,25 @@ try:
 except Exception as e:
 
     st.error(
-        "Database could not be opened. "
-        "Make sure ecommerce_hackathon.db "
-        "is in the same folder as app.py."
+        f"Database connection error: {e}"
     )
 
-    st.exception(e)
     st.stop()
 
 
 # ============================================================
-# GET MEMBERSHIP TYPES
+# MEMBERSHIP TYPES
 # ============================================================
 
 try:
 
-    membership_query = """
-    SELECT DISTINCT membership_type
-    FROM customers
-    WHERE membership_type IS NOT NULL
-    ORDER BY membership_type;
-    """
-
     membership_df = pd.read_sql_query(
-        membership_query,
+        """
+        SELECT DISTINCT membership_type
+        FROM customers
+        WHERE membership_type IS NOT NULL
+        ORDER BY membership_type
+        """,
         conn
     )
 
@@ -222,14 +182,14 @@ try:
         .tolist()
     )
 
-except Exception as e:
+except:
 
-    st.error(
-        "Membership types could not be loaded."
-    )
-
-    st.exception(e)
-    st.stop()
+    membership_options = [
+        "Basic",
+        "Silver",
+        "Gold",
+        "Premium"
+    ]
 
 
 # ============================================================
@@ -269,7 +229,7 @@ st.sidebar.write(
 
 
 # ============================================================
-# MAIN HEADER
+# HEADER
 # ============================================================
 
 st.title(
@@ -288,7 +248,7 @@ st.divider()
 
 
 # ============================================================
-# PAGE 1 - DASHBOARD
+# DASHBOARD
 # ============================================================
 
 if page == "📊 Dashboard":
@@ -298,50 +258,48 @@ if page == "📊 Dashboard":
     )
 
     st.write(
-        "Monitor revenue, customers, orders "
+        "Monitor revenue, orders, customers "
         "and product performance."
     )
 
 
-    # ========================================================
-    # SQL KPI QUERIES
-    # ========================================================
+    # --------------------------------------------------------
+    # KPI SQL
+    # --------------------------------------------------------
 
     revenue_query = """
     SELECT
         SUM(
-            quantity *
-            unit_price *
-            (1 - discount)
+            quantity * unit_price * (1 - discount)
         ) AS net_revenue
     FROM orders
     WHERE quantity > 0
       AND unit_price > 0
-      AND date(order_date) IS NOT NULL;
+      AND date(order_date) IS NOT NULL
     """
 
 
     orders_query = """
     SELECT
-        COUNT(*) AS valid_orders
+        COUNT(*) AS total_orders
     FROM orders
     WHERE quantity > 0
       AND unit_price > 0
-      AND date(order_date) IS NOT NULL;
+      AND date(order_date) IS NOT NULL
     """
 
 
     customers_query = """
     SELECT
         COUNT(*) AS total_customers
-    FROM customers;
+    FROM customers
     """
 
 
     products_query = """
     SELECT
         COUNT(*) AS total_products
-    FROM products;
+    FROM products
     """
 
 
@@ -351,10 +309,10 @@ if page == "📊 Dashboard":
     ).iloc[0]["net_revenue"]
 
 
-    valid_orders = pd.read_sql_query(
+    total_orders = pd.read_sql_query(
         orders_query,
         conn
-    ).iloc[0]["valid_orders"]
+    ).iloc[0]["total_orders"]
 
 
     total_customers = pd.read_sql_query(
@@ -369,56 +327,48 @@ if page == "📊 Dashboard":
     ).iloc[0]["total_products"]
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # KPI CARDS
-    # ========================================================
+    # --------------------------------------------------------
 
     st.subheader(
         "📌 Business Overview"
     )
 
 
-    col1, col2, col3, col4 = st.columns(4)
+    c1, c2, c3, c4 = st.columns(4)
 
 
-    with col1:
-
-        st.metric(
-            label="💰 Net Revenue",
-            value=f"{net_revenue / 1_000_000:.1f}M"
-        )
+    c1.metric(
+        "💰 Net Revenue",
+        f"{net_revenue / 1_000_000:.1f}M"
+    )
 
 
-    with col2:
-
-        st.metric(
-            label="📦 Valid Orders",
-            value=f"{valid_orders:,}"
-        )
+    c2.metric(
+        "📦 Valid Orders",
+        f"{total_orders:,}"
+    )
 
 
-    with col3:
-
-        st.metric(
-            label="👥 Customers",
-            value=f"{total_customers:,}"
-        )
+    c3.metric(
+        "👥 Customers",
+        f"{total_customers:,}"
+    )
 
 
-    with col4:
-
-        st.metric(
-            label="🛒 Products",
-            value=f"{total_products:,}"
-        )
+    c4.metric(
+        "🛒 Products",
+        f"{total_products:,}"
+    )
 
 
     st.write("")
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # MONTHLY REVENUE
-    # ========================================================
+    # --------------------------------------------------------
 
     monthly_query = """
     SELECT
@@ -442,7 +392,7 @@ if page == "📊 Dashboard":
 
     GROUP BY month
 
-    ORDER BY month;
+    ORDER BY month
     """
 
 
@@ -452,9 +402,9 @@ if page == "📊 Dashboard":
     )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # CATEGORY REVENUE
-    # ========================================================
+    # --------------------------------------------------------
 
     category_query = """
     SELECT
@@ -482,7 +432,7 @@ if page == "📊 Dashboard":
         LOWER(TRIM(p.category))
 
     ORDER BY
-        net_revenue DESC;
+        net_revenue DESC
     """
 
 
@@ -498,9 +448,9 @@ if page == "📊 Dashboard":
     )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # CITY REVENUE
-    # ========================================================
+    # --------------------------------------------------------
 
     city_query = """
     SELECT
@@ -528,7 +478,7 @@ if page == "📊 Dashboard":
         LOWER(TRIM(c.city))
 
     ORDER BY
-        net_revenue DESC;
+        net_revenue DESC
     """
 
 
@@ -544,9 +494,9 @@ if page == "📊 Dashboard":
     )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # RETURN RATE
-    # ========================================================
+    # --------------------------------------------------------
 
     return_query = """
     SELECT
@@ -576,7 +526,7 @@ if page == "📊 Dashboard":
         LOWER(TRIM(p.category))
 
     ORDER BY
-        return_rate DESC;
+        return_rate DESC
     """
 
 
@@ -592,22 +542,22 @@ if page == "📊 Dashboard":
     )
 
 
-    # ========================================================
+    # --------------------------------------------------------
     # CHARTS
-    # ========================================================
+    # --------------------------------------------------------
 
     st.subheader(
         "📈 Revenue Analysis"
     )
 
 
-    chart1, chart2 = st.columns(2)
+    col1, col2 = st.columns(2)
 
 
-    with chart1:
+    with col1:
 
         st.write(
-            "**Monthly Net Revenue Trend**"
+            "**Monthly Net Revenue**"
         )
 
         st.line_chart(
@@ -617,10 +567,10 @@ if page == "📊 Dashboard":
         )
 
 
-    with chart2:
+    with col2:
 
         st.write(
-            "**Revenue by Product Category**"
+            "**Revenue by Category**"
         )
 
         st.bar_chart(
@@ -630,13 +580,10 @@ if page == "📊 Dashboard":
         )
 
 
-    st.write("")
+    col3, col4 = st.columns(2)
 
 
-    chart3, chart4 = st.columns(2)
-
-
-    with chart3:
+    with col3:
 
         st.write(
             "**Revenue by City**"
@@ -649,7 +596,7 @@ if page == "📊 Dashboard":
         )
 
 
-    with chart4:
+    with col4:
 
         st.write(
             "**Return Rate by Category (%)**"
@@ -662,51 +609,36 @@ if page == "📊 Dashboard":
         )
 
 
-    # ========================================================
-    # BUSINESS INSIGHTS
-    # ========================================================
+    # --------------------------------------------------------
+    # INSIGHTS
+    # --------------------------------------------------------
 
     st.subheader(
         "💡 Key Business Insights"
     )
 
 
-    st.markdown(
-        """
-        **📱 Electronics — Revenue Leader**
-
-        Electronics is the largest revenue-generating
-        product category and is a major contributor
-        to overall business performance.
-        """
+    st.success(
+        "📱 Electronics is the largest "
+        "revenue-generating product category."
     )
 
 
-    st.markdown(
-        """
-        **🌍 Karachi — Strongest Market**
-
-        Karachi generates the highest city-level
-        revenue, followed by Lahore, making these
-        important markets for the business.
-        """
+    st.info(
+        "🌍 Karachi generates the highest "
+        "city-level revenue, followed by Lahore."
     )
 
 
-    st.markdown(
-        """
-        **↩️ Fashion — Highest Return Rate**
-
-        Fashion has the highest product return rate.
-        Product quality, sizing, descriptions and
-        customer expectations may require further
-        investigation.
-        """
+    st.warning(
+        "↩️ Fashion has the highest return rate. "
+        "Product sizing, quality and descriptions "
+        "may require further investigation."
     )
 
 
 # ============================================================
-# PAGE 2 - CHURN PREDICTION
+# CHURN PREDICTION
 # ============================================================
 
 elif page == "👥 Churn Prediction":
@@ -715,25 +647,21 @@ elif page == "👥 Churn Prediction":
         "👥 Customer Churn Prediction"
     )
 
+
     st.write(
-        "Identify customers who may stop purchasing "
-        "so retention action can be taken early."
+        "Predict whether a customer is likely "
+        "to stop purchasing."
     )
 
 
     st.info(
-        "The churn model uses historical customer "
-        "behaviour such as orders, spending, recency, "
-        "returns, delivery time, age and membership."
+        "Churn = customer did not purchase "
+        "during the target period."
     )
 
 
     col1, col2 = st.columns(2)
 
-
-    # ========================================================
-    # PURCHASE BEHAVIOUR
-    # ========================================================
 
     with col1:
 
@@ -742,7 +670,7 @@ elif page == "👥 Churn Prediction":
         )
 
 
-        total_orders = st.number_input(
+        total_orders_input = st.number_input(
             "Total Orders",
             min_value=1,
             value=10,
@@ -773,10 +701,6 @@ elif page == "👥 Churn Prediction":
             step=1
         )
 
-
-    # ========================================================
-    # CUSTOMER PROFILE
-    # ========================================================
 
     with col2:
 
@@ -820,20 +744,15 @@ elif page == "👥 Churn Prediction":
     st.write("")
 
 
-    # ========================================================
-    # CHURN PREDICTION BUTTON
-    # ========================================================
-
     if st.button(
-        "🔮 Predict Customer Churn",
-        key="churn_button"
+        "🔮 Predict Customer Churn"
     ):
 
 
         customer_data = pd.DataFrame({
 
             "total_orders": [
-                total_orders
+                total_orders_input
             ],
 
             "total_spending": [
@@ -890,17 +809,14 @@ elif page == "👥 Churn Prediction":
                     "⚠️ HIGH CHURN RISK"
                 )
 
-
                 st.metric(
-                    label="Churn Probability",
-                    value=f"{probability * 100:.2f}%"
+                    "Churn Probability",
+                    f"{probability * 100:.2f}%"
                 )
 
-
                 st.write(
-                    "This customer is predicted to churn. "
-                    "The business may consider targeted "
-                    "retention offers or engagement."
+                    "This customer is predicted "
+                    "to churn."
                 )
 
 
@@ -910,30 +826,26 @@ elif page == "👥 Churn Prediction":
                     "✅ CUSTOMER LIKELY TO STAY"
                 )
 
-
                 st.metric(
-                    label="Churn Probability",
-                    value=f"{probability * 100:.2f}%"
+                    "Churn Probability",
+                    f"{probability * 100:.2f}%"
                 )
 
-
                 st.write(
-                    "The model predicts that this customer "
-                    "is likely to remain active."
+                    "This customer is predicted "
+                    "to remain active."
                 )
 
 
         except Exception as e:
 
             st.error(
-                "Churn prediction could not be completed."
+                f"Prediction error: {e}"
             )
-
-            st.exception(e)
 
 
 # ============================================================
-# PAGE 3 - SENTIMENT ANALYSIS
+# SENTIMENT ANALYSIS
 # ============================================================
 
 elif page == "💬 Sentiment Analysis":
@@ -944,38 +856,33 @@ elif page == "💬 Sentiment Analysis":
 
 
     st.write(
-        "Analyse customer feedback and classify "
-        "reviews as Positive, Neutral or Negative."
+        "Classify customer reviews as "
+        "Positive, Neutral or Negative."
     )
 
 
     st.info(
-        "The sentiment model uses TF-IDF text features "
-        "with Logistic Regression to classify "
-        "customer reviews."
+        "Sentiment analysis uses TF-IDF "
+        "and Logistic Regression."
     )
 
 
     review_text = st.text_area(
         "✍️ Enter Customer Review",
-        placeholder=(
-            "Example: The product quality was excellent "
-            "and delivery was very fast."
-        ),
+        placeholder="Example: The product was excellent.",
         height=180
     )
 
 
     if st.button(
-        "✨ Analyse Sentiment",
-        key="sentiment_button"
+        "✨ Analyse Sentiment"
     ):
 
 
         if review_text.strip() == "":
 
             st.warning(
-                "Please enter a customer review first."
+                "Please enter a review first."
             )
 
 
@@ -1000,8 +907,8 @@ elif page == "💬 Sentiment Analysis":
                     )
 
                     st.write(
-                        "The review indicates a positive "
-                        "customer experience."
+                        "The review indicates a "
+                        "positive customer experience."
                     )
 
 
@@ -1012,9 +919,8 @@ elif page == "💬 Sentiment Analysis":
                     )
 
                     st.write(
-                        "The review indicates customer "
-                        "dissatisfaction and may require "
-                        "attention."
+                        "The review indicates "
+                        "customer dissatisfaction."
                     )
 
 
@@ -1025,20 +931,16 @@ elif page == "💬 Sentiment Analysis":
                     )
 
                     st.write(
-                        "The review expresses neither "
-                        "strongly positive nor strongly "
-                        "negative sentiment."
+                        "The review expresses "
+                        "neutral sentiment."
                     )
 
 
             except Exception as e:
 
                 st.error(
-                    "Sentiment analysis could not "
-                    "be completed."
+                    f"Sentiment prediction error: {e}"
                 )
-
-                st.exception(e)
 
 
 # ============================================================
@@ -1048,14 +950,8 @@ elif page == "💬 Sentiment Analysis":
 st.divider()
 
 st.markdown(
-    """
-    <p class="footer">
-        🛍️ ShopSphere Analytics
-        &nbsp; | &nbsp;
-        Data Science Final Hackathon
-        &nbsp; | &nbsp;
-        Developed by <b>Sumbal Zaheer</b>
-    </p>
-    """,
+    '<p class="footer">🛍️ ShopSphere Analytics | '
+    'Data Science Final Hackathon | '
+    'Developed by <b>Sumbal Zaheer</b></p>',
     unsafe_allow_html=True
 )
